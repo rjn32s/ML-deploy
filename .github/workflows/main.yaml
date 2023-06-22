@@ -19,16 +19,17 @@ jobs:
       - name: Install dependencies
         run: pip install --no-cache-dir -r requirements.txt
 
-      - name: Build Docker image
-        run: docker build -t my-app .
+      - name: Copy files to EC2 instance
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PEM_FILE }}
+          port: ${{ secrets.EC2_PORT }}
+          source: .
+          target: /home/ubuntu/my-app
 
-      - name: Log in to Docker Hub
-        run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Push Docker image
-        run: docker push my-app
-
-      - name: Deploy to EC2 instance
+      - name: SSH into EC2 instance
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -36,7 +37,8 @@ jobs:
           key: ${{ secrets.EC2_PEM_FILE }}
           port: ${{ secrets.EC2_PORT }}
           script: |
-            docker pull my-app
+            cd /home/ubuntu/my-app
+            docker build -t my-app .
             docker stop my-app-container || true
             docker rm my-app-container || true
             docker run -d -p 8000:8000 --name my-app-container my-app
